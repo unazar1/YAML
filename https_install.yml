@@ -28,15 +28,15 @@
       provider: selfsigned
 
   - name: Copying document root
-      copy:
-        src: ~/tmp2/index.html
-        dest: /var/www/html/
-        owner: root
-        group: root
-        mode: 0755
+    copy:
+      src: ~/tmp2/index.html
+      dest: /var/www/html/
+      owner: root
+      group: root
+      mode: 0755
 
   - name: starting httpd
-      service:
-        name: httpd
-        state: restarted
-        enabled: yes
+    service:
+      name: httpd
+      state: restarted
+      enabled: yes
