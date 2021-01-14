@@ -2,41 +2,64 @@
 - name: WebServers to deploy to
   hosts: all
   remote_user: ec2-user
+  become: yes
+  vars:
+    - server_hostname: "put IP addres"
+    - key_size: 4096
+    - key_type: RSA
+#     webservers:
+#   children:
+#     webservers:
+#       hosts:
   tasks:
 
-  - name: Installing Http Package
-    yum:
-      name: httpd
-      state: installed
+  - name: Run a command as the root user/install https
+    command: yum install -y httpd
+    become: yes
+    become_user: root
 
-  - name: Opening port "443"
-    firewalld:
-      service: https
-      permanent: true
-      state: enabled
+#  - name: Allow http/https
+#    command: firewall-cmd --zone=dmz --permanent --add-service=http --add-service=http  
 
-  - name: restart firewalld
-    service:
-      name: firewalld
-      state: restarted
+#  - name: Restart Firewall
+#    command: systemctl restart firewalld 
 
-  - name: Generate a Self Signed OpenSSL certificate
-    community.crypto.x509_certificate:
-      path: /etc/ssl/crt/ansible.com.crt
-      privatekey_path: /etc/ssl/private/ansible.com.pem
-      csr_path: /etc/ssl/csr/ansible.com.csr
-      provider: selfsigned
+  - name: Creates directory
+    file:
+      path: ./certificates
+      state: directory
 
+  - name: Generate an OpenSSL private key
+    openssl_privatekey:
+      path: "./certificates/{{ server_hostname }}_privkey.pem"
+      size: "{{ key_size }}"
+      type: "{{ key_type }}"
+      backup: yes
+
+  - name: Generate an OpenSSL Certificate Signing Request with Subject information
+    openssl_csr:
+      path: "./certificates/{{ server_hostname }}.csr"
+      privatekey_path: "./certificates/{{ server_hostname }}_privkey.pem"
+      country_name: NY
+      organization_name: anything
+      email_address: anything
+      common_name: "{{ server_hostname }}"
+
+  - name: Create Document Root
+    file: path=/var/www/html state=directory
+  
   - name: Copying document root
     copy:
-      src: ~/tmp2/index.html
-      dest: /var/www/html/
-      owner: root
-      group: root
-      mode: 0755
+      src: /tmp/index.html
+      dest: /var/www/html
+      
+  - name: Run config test on ssl cert
+    command: apachectl configtest
+    become: yes
+    become_user: root   
 
   - name: starting httpd
     service:
-      name: httpd
-      state: restarted
-      enabled: yes
+       name: httpd
+       state: restarted
+       enabled: yes
